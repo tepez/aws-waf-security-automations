@@ -29,16 +29,12 @@ echo "Staring to build distribution"
 echo "------------------------------------------------------------------------------"
 echo "Updating Templates"
 echo "------------------------------------------------------------------------------"
-echo "cp -f aws-waf-security-automations.template dist"
-cp -f aws-waf-security-automations.template dist
-echo "cp -f aws-waf-security-automations-alb.template dist"
-cp -f aws-waf-security-automations-alb.template dist
+echo "cp -f aws-waf-security-automations.template.yaml dist/aws-waf-security-automations.template"
+cp -f aws-waf-security-automations.template.yaml dist/aws-waf-security-automations.template
 echo "Updating code source bucket in template with $1"
 replace="s/%%BUCKET_NAME%%/$1/g"
 echo "sed -i '' -e $replace dist/aws-waf-security-automations.template"
 sed -i '' -e $replace dist/aws-waf-security-automations.template
-echo "sed -i '' -e $replace dist/aws-waf-security-automations-alb.template"
-sed -i '' -e $replace dist/aws-waf-security-automations-alb.template
 cd dist
 mkdir -p v2
 mkdir -p v3
