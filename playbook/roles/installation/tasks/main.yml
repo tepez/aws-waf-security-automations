@@ -1,0 +1,59 @@
+---
+
+- name: Adding +x to build-s3-dist.sh
+  file:
+    path: ../deployment/build-s3-dist.sh
+    mode: a+x
+
+- name: Prepare dist files
+  shell: './build-s3-dist.sh "{{ installation_sources_bucket_name }}"'
+  args:
+    chdir: ../deployment/
+
+- name: Create the sources bucket
+  aws_s3:
+    bucket: '{{ installation_sources_bucket_name }}-{{ aws_region }}'
+    mode: create
+    region: '{{ aws_region }}'
+
+- name: Copy deployment files to bucket
+  s3_sync:
+    bucket: '{{ installation_sources_bucket_name }}-{{ aws_region }}'
+    key_prefix: aws-waf-security-automations
+    file_root: ../deployment/dist/
+
+- name: Get facts of util-log-buckets
+  cloudformation_facts:
+    stack_name: util-log-buckets
+    region: '{{ aws_region }}'
+  tags:
+    - always
+
+- name: Get name of CloudFront logs bucket
+  set_fact:
+    cloud_front_logs_bucket: "{{ cloudformation['util-log-buckets'].stack_outputs.CloudFrontLogsBucket }}"
+  tags:
+    - always
+
+- name: Setup CloudFormation template
+  cloudformation:
+    stack_name: aws-waf-security-automations
+    state: present
+    region: '{{ aws_region }}'
+    disable_rollback: false
+    # use the template that we uploaded to S3 since it's too big [bigger than 51,200 bytes](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cloudformation-limits.html)
+    # to send directly to CloudFormation
+    template_url: 'https://s3.amazonaws.com/{{ installation_sources_bucket_name }}-{{ aws_region }}/aws-waf-security-automations/aws-waf-security-automations.template'
+    template_parameters:
+      SqlInjectionProtectionParam: 'no'
+      CrossSiteScriptingProtectionParam: 'no'
+      ActivateHttpFloodProtectionParam: 'yes'
+      ActivateScansProbesProtectionParam: 'yes'
+      ActivateReputationListsProtectionParam: 'yes'
+      ActivateBadBotProtectionParam: 'no'
+      AccessLogBucket: '{{ cloud_front_logs_bucket }}'
+      SendAnonymousUsageData: 'no'
+
+  #async: 1800 # wait for up to 30 minutes
+  #poll: 0
+  #register: config_setup_sleeper
